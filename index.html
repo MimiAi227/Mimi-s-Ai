@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Mimi’s AI</title>
+<style>
+:root{--bg:#F6F3FF;--card:#fff;--ink:#1D1633;--muted:#6B6385;--pri:#6D4AFF;--pri-ink:#fff;--line:#E3DCF7;--acc:#FF7AA8;--me:#EDE7FF}
+@media (prefers-color-scheme: dark){:root{--bg:#14101F;--card:#201A33;--ink:#F1EDFF;--muted:#A99FC7;--pri:#9B84FF;--pri-ink:#150F2B;--line:#352C52;--acc:#FF8FB6;--me:#2C2450}}
+*{box-sizing:border-box}html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;line-height:1.5}
+#app{height:100dvh;display:flex;flex-direction:column;max-width:640px;margin:0 auto;padding-top:env(safe-area-inset-top,0px)}
+header{padding:12px 16px;display:flex;justify-content:space-between;align-items:center}
+h1{font-size:20px;margin:0}h1 b{color:var(--pri)}
+body.owner h1 b{color:var(--acc)}
+.badge{font-size:12px;background:var(--acc);color:#2A0A18;padding:3px 10px;border-radius:99px}
+#view{flex:1;min-height:0;overflow:auto;padding:0 16px 12px}
+#view.chat{overflow:hidden;padding-bottom:0}
+nav{display:flex;border-top:1px solid var(--line);background:var(--card);padding-bottom:env(safe-area-inset-bottom,0px)}
+nav button{flex:1;background:none;border:0;color:var(--muted);font:inherit;font-size:12px;padding:10px 4px;cursor:pointer}
+nav button.on{color:var(--pri);font-weight:700}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;margin:12px 16px}
+#view .card{margin:0 0 12px}
+h2{font-size:18px;margin:0 0 8px}h3{font-size:15px;margin:0 0 6px}
+p{margin:6px 0}.muted{color:var(--muted);font-size:13px}
+input,textarea{font:inherit;width:100%;padding:11px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--ink);margin-top:6px}
+textarea{resize:vertical}
+button{font:inherit}
+.btn{width:100%;margin-top:10px;padding:12px;border:0;border-radius:10px;background:var(--pri);color:var(--pri-ink);font-weight:600;cursor:pointer}
+.ghost{background:none;border:1px solid var(--line);color:var(--muted);font-weight:400}
+.sm{width:auto;padding:7px 12px;margin:0;font-size:13px}
+.hide{display:none}.msg{color:var(--acc);font-size:13px;min-height:18px}
+.wrap{display:flex;flex-direction:column;height:100%}
+.bar{display:flex;gap:8px;padding-bottom:8px}
+#msgs{flex:1;overflow:auto;padding:4px 0}
+.m{max-width:88%;padding:10px 13px;border-radius:14px;margin:6px 0;white-space:pre-wrap;word-wrap:break-word}
+.m.user{background:var(--pri);color:var(--pri-ink);margin-left:auto}
+.m.assistant{background:var(--card);border:1px solid var(--line)}
+.m.note{background:var(--me);font-size:13px}
+.m small{display:block;margin-top:6px}
+.lnk{background:none;border:0;color:var(--pri);font-size:12px;padding:0;cursor:pointer;text-decoration:underline}
+.cmp{display:flex;gap:8px;padding:8px 0}
+.cmp textarea{margin:0;flex:1;max-height:110px}
+.cmp .btn{width:auto;margin:0;padding:0 18px}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.chip{border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:99px;padding:8px 12px;font-size:13px;cursor:pointer}
+#sheet{position:absolute;inset:0;background:var(--bg);z-index:5;padding:12px 16px;overflow:auto}
+.row{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:10px 0;border-top:1px solid var(--line)}
+.row span{flex:1;word-break:break-word}
+.moods{display:flex;gap:8px;margin:10px 0}.moods button{flex:1;font-size:26px;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:8px 0;cursor:pointer}
+</style></head>
+<body>
+<div id="app">
+ <div id="gate" class="hide"></div>
+ <div id="main" class="hide" style="display:none;flex-direction:column;flex:1;min-height:0;position:relative">
+  <header><h1>Mimi’s <b>AI</b></h1><span class="badge hide" id="own">Owner ✓</span></header>
+  <div id="view"></div>
+  <nav id="nav"><button data-t="chat">💬 Chat</button><button data-t="journal">📓 Journal</button><button data-t="goals">🎯 Goals</button><button data-t="me">💜 Me</button></nav>
+ </div>
+</div>
+<script>
+// ===== SETTINGS (edit these two lines) =====
+var KEY = "AQ.Ab8RN6Jo450VPL2ZsXu60W43RXEHw4TKHDZZFoFEDx3hQrX6ZA";
+var MODEL = "gemini-flash-latest";
+var OWNER_HASH = "07725793742eb843f5440b9080ec618ea944d2f04b152c3dff1af3f21bec9807";
+// ===========================================
+var QS = ["What should I call you?","How old are you?","What are your biggest dreams?","What is one goal you want to reach in the next 3 months?","What feels hardest in your life right now?","What makes you happy or proud?","What do you enjoy studying or learning?","Which subject or skill do you struggle with?","How do you like to learn: reading, videos, practice, or talking?","Who supports you at the moment?","What skills or talents do you already have?","What do you want from this AI?"];
+var CRISIS = /(kill myself|suicide|end my life|want to die|self[- ]?harm|hurt myself|cut myself)/i;
+var $ = function(i){ return document.getElementById(i); };
+function esc(t){ var d = document.createElement("div"); d.textContent = t; return d.innerHTML; }
+function today(){ return new Date().toISOString().slice(0,10); }
+function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,6); }
+function load(){ try{ var s = JSON.parse(localStorage.getItem("mi_state")); if(s) return s; }catch(e){} return {profile:null,owner:false,chats:[],cur:null,journal:[],goals:[],moods:[],daily:null}; }
+var S = load(), tab = "chat", busy = false, qi = 0, ans = [];
+function save(){ try{ localStorage.setItem("mi_state", JSON.stringify(S)); }catch(e){} }
+async function sha(t){ var b = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(t)); return Array.from(new Uint8Array(b)).map(function(x){ return x.toString(16).padStart(2,"0"); }).join(""); }
+
+// ---------- sign-in: ownership code or skip, then questions ----------
+function gate(){
+  $("main").style.display = "none"; $("gate").className = "";
+  $("gate").innerHTML = '<div class="card"><h2>Welcome 💜</h2><p>Mimi’s AI is a mentor for your goals, feelings, studies and coding. Your answers stay on your phone.</p><p class="muted">Ownership code (only for the owner, everyone else can skip)</p><input id="oc" placeholder="Enter code" autocomplete="off"><p class="msg" id="om"></p><button class="btn" id="ok">Continue</button><button class="btn ghost" id="sk">Skip</button></div>';
+  $("sk").onclick = ask;
+  $("ok").onclick = async function(){
+    var v = $("oc").value.trim().toUpperCase(); if(!v){ ask(); return; }
+    try{ if(await sha(v) === OWNER_HASH){ S.owner = true; save(); ask(); } else $("om").textContent = "That code is not right. Check it or tap Skip."; }
+    catch(e){ $("om").textContent = "Could not check the code here. Tap Skip."; }
+  };
+}
+function ask(){
+  var last = qi === QS.length - 1;
+  $("gate").innerHTML = '<div class="card"><p class="muted">Question ' + (qi+1) + ' of ' + QS.length + '</p><h2>' + esc(QS[qi]) + '</h2><textarea id="qa" rows="3" placeholder="Type your answer (you can skip)"></textarea><button class="btn" id="nx">' + (last ? "Finish" : "Next") + '</button></div>';
+  $("nx").onclick = function(){
+    ans.push({q: QS[qi], a: $("qa").value.trim()}); qi++;
+    if(qi < QS.length) ask(); else { S.profile = {name: ans[0].a || "friend", answers: ans}; save(); start(); }
+  };
+}
+function start(){
+  $("gate").className = "hide"; $("main").style.display = "flex";
+  $("own").className = S.owner ? "badge" : "badge hide"; document.body.className = S.owner ? "owner" : "";
+  if(!curChat()) newChat();
+  setTab("chat");
+}
+
+// ---------- chats ----------
+function curChat(){ return S.chats.find(function(c){ return c.id === S.cur; }); }
+function newChat(){ var c = {id: uid(), title: "New chat", msgs: []}; S.chats.unshift(c); S.cur = c.id; save(); }
+function sys(){
+  var p = S.profile ? S.profile.answers.filter(function(x){ return x.a; }).map(function(x){ return x.q + " " + x.a; }).join("\n") : "";
+  var j = S.journal.slice(0,5).map(function(x){ return "- " + x.t; }).join("\n");
+  var g = S.goals.filter(function(x){ return !x.done; }).map(function(x){ return "- " + x.t; }).join("\n");
+  return "You are Mimi’s AI, a warm, honest personal mentor web app built by Sam (SamLight) for his friend Mimi and a few friends. " +
+  (S.owner ? "The person you are talking to is Mimi, the owner of this app. Greet her warmly as the owner when it fits. " : "") +
+  "Talk like a kind older friend. Keep replies short and easy to read on a phone, and ask one question at a time. Help with goals, positive mindset, coping with feelings, ways to break out of poverty with realistic small steps, studies (explain simply, teach the steps, don’t just hand over homework answers) and coding (beginner friendly, step by step). Be honest and never flatter. You are not a doctor or therapist. If someone seems in danger or talks about hurting themselves, respond with care, encourage them to tell a trusted adult or someone near them right now, and suggest local emergency help. Never give harmful instructions.\n\nWhat the user told you about themselves:\n" + p + "\n\nRecent journal notes:\n" + j + "\n\nOpen goals:\n" + g;
+}
+async function askAI(msgs){
+  if(!KEY || KEY.indexOf("PASTE") === 0) throw new Error("The AI key is not added yet. Ask Sam to add it.");
+  var contents = [];
+  msgs.slice(-20).forEach(function(m){
+    var role = m.r === "assistant" ? "model" : "user", last = contents[contents.length-1];
+    if(last && last.role === role) last.parts[0].text += "\n" + m.c; else contents.push({role: role, parts: [{text: m.c}]});
+  });
+  while(contents.length && contents[0].role !== "user") contents.shift();
+  var r;
+  try{
+    r = await fetch("https://generativelanguage.googleapis.com/v1beta/models/" + MODEL + ":generateContent?key=" + encodeURIComponent(KEY), {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({systemInstruction:{parts:[{text: sys()}]}, contents: contents, generationConfig:{maxOutputTokens:1200}})});
+  }catch(e){ throw new Error("Could not reach the AI. Check your internet and try again."); }
+  var j = await r.json().catch(function(){ return {}; });
+  if(!r.ok) throw new Error((j.error && j.error.message) || ("Error " + r.status));
+  var c = j.candidates && j.candidates[0], t = c && c.content && c.content.parts ? c.content.parts.map(function(q){ return q.text || ""; }).join("") : "";
+  return t.trim() || "I had no answer. Please try again.";
+}
+async function send(text){
+  var c = curChat(); text = (text || "").trim(); if(!text || busy) return;
+  c.msgs.push({r:"user", c:text}); if(c.title === "New chat") c.title = text.slice(0,34);
+  if(CRISIS.test(text)) c.msgs.push({r:"note", c:"💜 I’m glad you said this. Please tell a trusted adult or someone near you right now. If you are in danger, call your local emergency number. You matter."});
+  busy = true; save(); drawMsgs(true);
+  try{ c.msgs.push({r:"assistant", c: await askAI(c.msgs.filter(function(m){ return m.r !== "note"; }))}); }
+  catch(e){ c.msgs.push({r:"note", c:"Sorry, I could not reply: " + e.message}); }
+  busy = false; save(); drawMsgs();
+}
+function drawMsgs(typing){
+  var c = curChat(), box = $("msgs"); if(!box) return; box.innerHTML = "";
+  if(!c.msgs.length){
+    var h = document.createElement("div"); h.className = "card";
+    var nm = esc(S.profile ? S.profile.name : "friend"); h.innerHTML = (S.owner ? "<h3>Welcome home, Mimi 💜</h3><p class='muted'>This app was made for you by your friend Sam. What would you like to talk about?</p>" : "<h3>Hi " + nm + " 💜</h3><p class='muted'>What would you like to talk about?</p>") + "<div class='chips'></div>";
+    ["Help me set a goal","Explain something I’m studying","I need to talk about how I feel","Help me with coding"].forEach(function(t){
+      var b = document.createElement("button"); b.className = "chip"; b.textContent = t; b.onclick = function(){ send(t); }; h.lastChild.appendChild(b); });
+    box.appendChild(h);
+  }
+  c.msgs.forEach(function(m){
+    var d = document.createElement("div"); d.className = "m " + m.r; d.textContent = m.c;
+    if(m.r === "assistant"){ var s = document.createElement("small"), b = document.createElement("button"); b.className = "lnk"; b.textContent = "+ Add to journal";
+      b.onclick = function(){ S.journal.unshift({id: uid(), t: m.c, d: today()}); save(); b.textContent = "Added ✓"; }; s.appendChild(b); d.appendChild(s); }
+    box.appendChild(d);
+  });
+  if(typing){ var t = document.createElement("div"); t.className = "m assistant"; t.textContent = "Typing…"; box.appendChild(t); }
+  box.scrollTop = box.scrollHeight;
+}
+function sheet(){
+  var s = document.createElement("div"); s.id = "sheet";
+  s.innerHTML = "<h2>Your chats</h2><button class='btn sm' id='cl'>Close</button><div id='cls'></div>";
+  $("main").appendChild(s);
+  $("cl").onclick = function(){ s.remove(); };
+  S.chats.forEach(function(c){
+    var r = document.createElement("div"); r.className = "row";
+    var n = document.createElement("span"); n.textContent = c.title; n.style.cursor = "pointer";
+    n.onclick = function(){ S.cur = c.id; save(); s.remove(); drawMsgs(); };
+    var x = document.createElement("button"); x.className = "btn ghost sm"; x.textContent = "Delete";
+    x.onclick = function(){ if(confirm("Delete this chat?")){ S.chats = S.chats.filter(function(q){ return q.id !== c.id; }); if(!S.chats.length) newChat(); else if(S.cur === c.id) S.cur = S.chats[0].id; save(); s.remove(); sheet(); drawMsgs(); } };
+    r.appendChild(n); r.appendChild(x); $("cls").appendChild(r);
+  });
+}
+
+// ---------- tabs ----------
+function setTab(t){
+  tab = t; var v = $("view"); v.className = t === "chat" ? "chat" : "";
+  Array.prototype.forEach.call(document.querySelectorAll("#nav button"), function(b){ b.className = b.dataset.t === t ? "on" : ""; });
+  if(t === "chat") return viewChat(); if(t === "journal") return viewJournal(); if(t === "goals") return viewGoals(); viewMe();
+}
+function viewChat(){
+  $("view").innerHTML = '<div class="wrap"><div class="bar"><button class="btn ghost sm" id="lst">☰ Chats</button><button class="btn sm" id="nw">＋ New chat</button></div><div id="msgs"></div><div class="cmp"><textarea id="in" rows="1" placeholder="Type here…"></textarea><button class="btn" id="snd">Send</button></div></div>';
+  $("lst").onclick = sheet;
+  $("nw").onclick = function(){ if(!curChat().msgs.length) return; newChat(); drawMsgs(); };
+  $("snd").onclick = function(){ var t = $("in").value; $("in").value = ""; send(t); };
+  drawMsgs();
+}
+function viewJournal(){
+  $("view").innerHTML = '<div class="card"><h2>Journal 📓</h2><p class="muted">Add anything important: a thought, a plan, a lesson, a memory.</p><textarea id="jt" rows="4" placeholder="Write or paste here…"></textarea><button class="btn" id="ja">Add</button></div><div id="jl"></div>';
+  $("ja").onclick = function(){ var t = $("jt").value.trim(); if(!t) return; S.journal.unshift({id: uid(), t: t, d: today()}); save(); viewJournal(); };
+  S.journal.forEach(function(e){
+    var c = document.createElement("div"); c.className = "card";
+    var d = document.createElement("p"); d.className = "muted"; d.textContent = e.d;
+    var t = document.createElement("p"); t.style.whiteSpace = "pre-wrap"; t.textContent = e.t;
+    var x = document.createElement("button"); x.className = "btn ghost sm"; x.textContent = "Delete";
+    x.onclick = function(){ if(confirm("Delete this note?")){ S.journal = S.journal.filter(function(q){ return q.id !== e.id; }); save(); viewJournal(); } };
+    c.appendChild(d); c.appendChild(t); c.appendChild(x); $("jl").appendChild(c);
+  });
+}
+function viewGoals(){
+  var done = S.goals.filter(function(g){ return g.done; }).length;
+  $("view").innerHTML = '<div class="card"><h2>Goals 🎯</h2><p class="muted">' + done + ' of ' + S.goals.length + ' done. Small steps count.</p><input id="gt" placeholder="Add a goal or a small step"><button class="btn" id="ga">Add</button></div><div class="card" id="gl"></div>';
+  $("ga").onclick = function(){ var t = $("gt").value.trim(); if(!t) return; S.goals.unshift({id: uid(), t: t, done: false}); save(); viewGoals(); };
+  if(!S.goals.length) $("gl").textContent = "No goals yet.";
+  S.goals.forEach(function(g){
+    var r = document.createElement("div"); r.className = "row";
+    var k = document.createElement("input"); k.type = "checkbox"; k.checked = g.done; k.style.cssText = "width:22px;margin:0";
+    k.onchange = function(){ g.done = k.checked; save(); viewGoals(); };
+    var n = document.createElement("span"); n.textContent = g.t; if(g.done) n.style.textDecoration = "line-through";
+    var x = document.createElement("button"); x.className = "btn ghost sm"; x.textContent = "✕";
+    x.onclick = function(){ S.goals = S.goals.filter(function(q){ return q.id !== g.id; }); save(); viewGoals(); };
+    r.appendChild(k); r.appendChild(n); r.appendChild(x); $("gl").appendChild(r);
+  });
+}
+function viewMe(){
+  var E = ["😢","😟","😐","🙂","😄"], rec = S.moods.slice(-7).map(function(m){ return m.m + " " + m.d.slice(5); }).join("   ");
+  $("view").innerHTML = (S.owner ? '<div class="card"><h2>Made for Mimi 💜</h2><p>Mimi, this is your AI. Sam built it for you, so you can grow, learn and dream big. You are the owner.</p></div>' : '') + '<div class="card"><h2>How are you today?</h2><div class="moods" id="mo"></div><p class="muted">' + (rec ? esc(rec) : "Tap an emoji to check in.") + '</p></div>' +
+  '<div class="card"><h2>Today’s motivation ✨</h2><p id="dm" style="white-space:pre-wrap"></p><button class="btn" id="dg">Get today’s motivation</button></div>' +
+  '<div class="card"><h2>Your data</h2><p class="muted">Everything is saved only on this phone. Clearing browser data or changing phones erases it.</p><button class="btn ghost" id="ex">Download my data</button><button class="btn ghost" id="dl">Delete all my data</button></div>';
+  E.forEach(function(e){ var b = document.createElement("button"); b.textContent = e;
+    b.onclick = function(){ S.moods = S.moods.filter(function(m){ return m.d !== today(); }); S.moods.push({d: today(), m: e}); save(); viewMe(); }; $("mo").appendChild(b); });
+  if(S.daily && S.daily.d === today()) $("dm").textContent = S.daily.t;
+  $("dg").onclick = async function(){
+    $("dm").textContent = "Thinking…";
+    try{ var t = await askAI([{r:"user", c:"Give me a short, warm motivation message for today (3 to 4 sentences) based on what you know about me. End with one small action I can do today."}]); S.daily = {d: today(), t: t}; save(); $("dm").textContent = t; }
+    catch(e){ $("dm").textContent = "Sorry: " + e.message; }
+  };
+  $("ex").onclick = function(){ var a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([JSON.stringify(S, null, 2)], {type:"application/json"})); a.download = "mimis-ai-data.json"; a.click(); };
+  $("dl").onclick = function(){ if(confirm("Delete everything saved on this phone?")){ try{ localStorage.removeItem("mi_state"); }catch(e){} location.reload(); } };
+}
+Array.prototype.forEach.call(document.querySelectorAll("#nav button"), function(b){ b.onclick = function(){ setTab(b.dataset.t); }; });
+if(S.profile) start(); else gate();
+</script>
+</body></html>
